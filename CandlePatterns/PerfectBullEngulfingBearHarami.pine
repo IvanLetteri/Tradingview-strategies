@@ -1,0 +1,114 @@
+////////////////////////////////////////////////////////////
+//  Copyright by AITA v1.0 08/10/2022
+//
+//    Those are what is generlly speaking called 
+//    'Perfect Bullish Engulfing' (PBullE) and
+//    'Perfect Bearish Harami' (PBearH) patterns.
+//    They are some reversal patterns formed by two candlesticks. 
+//    In PBullE the 1st candle is a down(red) candlestick which is followed by an up(green) 
+//    candlestick which has a long real body that engulfs or contains 
+//    the real body of the prior bar and its wicks. 
+//    (The PBullE pattern is the reverse of the PBearH pattern) 
+////////////////////////////////////////////////////////////
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Ivan AITA
+
+//@version=5
+strategy(title='AITA - Perfect Bullish/Bearish Engulfing/Harami Detector', calc_on_order_fills=true, initial_capital=25, default_qty_type=strategy.percent_of_equity, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_value=0.075, pyramiding=0, currency='USD', overlay=true)
+
+// Date Range for backtesting
+start_date = input.int(title='Start Date', defval=1, minval=1, maxval=31, group='Date Range', inline='1')
+end_date = input.int(title='End Date', defval=1, minval=1, maxval=31, group='Date Range', inline='1')
+
+start_month = input.int(title='Start Month', defval=9, minval=1, maxval=12, group='Date Range', inline='2')
+end_month = input.int(title='End Month', defval=9, minval=1, maxval=12, group='Date Range', inline='2')
+
+start_year = input.int(title='Start Year', defval=2022, minval=1800, maxval=3000, group='Date Range', inline='3')
+end_year = input.int(title='End Year', defval=2023, minval=1800, maxval=3000, group='Date Range', inline='3')
+
+in_date_range = time >= timestamp(syminfo.timezone, start_year, start_month, start_date, 0, 0) and time < timestamp(syminfo.timezone, end_year, end_month, end_date, 0, 0)
+
+//-------------------------------------------------------------------------------//
+// EMA
+a = input.bool(false, title='Enable EMA Length', group='EMA', inline='1')
+b = input.bool(false, title='Enable EMA Length', group='EMA', inline='2')
+c = input.bool(false, title='Enable EMA Length', group='EMA', inline='3')
+d = input.bool(false, title='Enable EMA Length', group='EMA', inline='4')
+e = input.bool(false, title='Enable EMA Length', group='EMA', inline='5')
+lena = input.int(9, minval=1, title='-', group='EMA', inline='1')
+lenb = input.int(21, minval=1, title='-', group='EMA', inline='2')
+lenc = input.int(50, minval=1, title='-', group='EMA', inline='3')
+lend = input.int(100, minval=1, title='-', group='EMA', inline='4')
+lene = input.int(200, minval=1, title='-', group='EMA', inline='5')
+outa = ta.ema(close, lena)
+outb = ta.ema(close, lenb)
+outc = ta.ema(close, lenc)
+outd = ta.ema(close, lend)
+oute = ta.ema(close, lene)
+
+//EMA Plots
+plot(a and outa ? outa : na, title='EMA 1', color=color.new(color.yellow, 0))
+plot(b and outb ? outb : na, title='EMA 2', color=color.new(color.teal, 0))
+plot(c and outc ? outc : na, title='EMA 3', color=color.new(color.orange, 0))
+plot(d and outd ? outd : na, title='EMA 4', color=color.new(color.green, 0), linewidth=2)
+plot(e and oute ? oute : na, title='EMA 5', color=color.new(color.blue, 0), linewidth=2)
+//-------------------------------------------------------------------------------//
+//// Pivoting features [Disabled for default]
+leftBarsHI = input.int(defval = 0, title = "Left Bars High Pivoting", minval = 0, maxval = 60)
+rightBarsHI = input.int(defval = 0, title = "Right Bars High Pivoting", minval = 0, maxval = 60)
+hiP = ta.pivotlow(high, leftBarsHI, rightBarsHI)
+hiP_cond = not na(hiP)
+
+leftBarsLO = input.int(defval = 0, title = "Left Bars Low Pivoting", minval = 0, maxval = 60)
+rightBarsLO = input.int(defval = 0, title = "Right Bars Low Pivoting", minval = 0, maxval = 60)
+loP = ta.pivotlow(low, leftBarsLO, rightBarsLO)
+loP_cond = not na(loP)
+
+// Enable Long Strategy
+enable_long_strategy = input.bool(true, title='Enable Long Strategy', group='SL/TP For Long Strategy', inline='1')
+long_SL_value = input.float(defval=2.01, title='Stoploss %', minval=0, group='SL/TP For Long Strategy', inline='2')
+long_SL_percentage = close * (long_SL_value / 100) / syminfo.mintick
+long_TP_value = input.float(defval=4.01, title='Take Profit %', minval=0, group='SL/TP For Long Strategy', inline='2')
+long_TP_percentage = close * (long_TP_value / 100) / syminfo.mintick
+//-------------------------------------------------------------------------------//
+// Plot Stoploss & Take Profit Levels
+long_SL_price = strategy.position_avg_price * (1 - long_SL_value / 100)
+long_TP_price = strategy.position_avg_price * (1 + long_TP_value / 100)
+
+// Enable Short Strategy
+enable_short_strategy = input.bool(true, title='Enable Short Strategy', group='SL/TP For Short Strategy', inline='1')
+short_SL_value = input.float(defval=2.01, title='Stoploss %', minval=0, group='SL/TP For Short Strategy', inline='2')
+short_SL_percentage = close * (short_SL_value / 100) / syminfo.mintick
+short_TP_value = input.float(defval=4.01, title='Take Profit %', minval=0, group='SL/TP For Short Strategy', inline='2')
+short_TP_percentage = close * (short_TP_value / 100) / syminfo.mintick
+//-------------------------------------------------------------------------------//
+// Stoploss & Take Profit settings
+short_SL_price = strategy.position_avg_price * (1 - short_SL_value / 100)
+short_TP_price = strategy.position_avg_price * (1 + short_TP_value / 100)
+
+//-------  Condition Perfect Bullish Engulfing  --------------//
+bool red1st_green2nd = ((open[1] > close[1]) and (close > open)) //1st candle red and 2nd candle green
+bool body2nd_engulf_all1st = (close >= high[1]) and (open <= low[1]) //the body of 2nd green candle engulf the entire 1st candle
+
+barcolor(red1st_green2nd ? body2nd_engulf_all1st ? color.yellow : na : na)
+bool entry_long_strat = (red1st_green2nd  and body2nd_engulf_all1st)
+
+//--------  Condition Perfect Bearish Harami  -------------------//
+bool green1st_red2nd = ((close[1] > open[1]) and (open > close)) //1st candle green and 2nd candle red
+bool body2nd_harami_all1st = (low >= open[1]) and (high <= close[1]) //the body of 2nd green candle engulf the entire 1st candle
+
+barcolor(green1st_red2nd ? body2nd_harami_all1st ? color.blue : na : na)
+bool entry_short_strat = (green1st_red2nd  and body2nd_harami_all1st)
+
+//-------------  Entry/Exit LONG strategy [Bullish Engulfing]  ---------------//
+if enable_long_strategy and in_date_range and loP_cond
+    strategy.entry('Entry Long', strategy.long, when=entry_long_strat, limit=close, alert_message='Open Long Position')
+    strategy.exit('Exit Long SL-TP', from_entry='Entry Long', loss=long_SL_percentage, profit=long_TP_percentage, alert_message='Exit Long SL/TP')
+plotshape(entry_long_strat and loP_cond, title="Long", text="Engulfing \nLong", textcolor=color.rgb(252, 239, 125), style=shape.labelup, size=size.tiny, location=location.bottom, color=color.rgb(107, 145, 248))
+
+//-------------  Entry/Exit SHORT strategy [Bearish Harami]  ---------------//
+if enable_short_strategy and in_date_range and hiP_cond
+    strategy.entry('Entry Short', strategy.short, when=entry_short_strat, limit=close, alert_message='Open Short Position')
+    strategy.exit('Exit Short SL-TP', from_entry='Entry Short', profit=short_SL_percentage, loss=short_TP_percentage, alert_message='Exit Short SL/TP')
+plotshape(entry_short_strat and loP_cond, title="Short", text="Harami \nshort", textcolor=color.rgb(248, 211, 109), style=shape.labeldown, size=size.tiny, location=location.top, color=color.rgb(191, 50, 196))
+
